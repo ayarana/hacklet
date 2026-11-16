@@ -1,0 +1,14 @@
+CREATE TABLE employees (
+	id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	name VARCHAR(100) NOT NULL,
+	job_title VARCHAR(100) NOT NULL,
+	department VARCHAR(100) NOT NULL,
+	corporate_email VARCHAR(255) NOT NULL UNIQUE,
+	corporate_phone VARCHAR(20),
+	wage NUMERIC(10,2) NOT NULL,
+	cpf CHAR(11) NOT NULL UNIQUE,
+	personal_phone VARCHAR(20),
+	address VARCHAR(255),
+	is_active BOOLEAN NOT NULL DEFAULT true,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

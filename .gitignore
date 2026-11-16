@@ -1,3 +1,5 @@
 node_modules/
 .env
-plano.md
+*.md
+!README.md
+!vms.md

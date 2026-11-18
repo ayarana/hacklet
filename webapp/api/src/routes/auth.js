@@ -20,9 +20,10 @@ router.post('/login', async (req, res) => {
 
 	try {
 		const result = await pool.query(
-			`SELECT id, employee_id, password_hash, role
-			FROM users
-			WHERE login = $1`,
+			`SELECT u.id, u.employee_id, u.password_hash, u.role
+			FROM users u
+			JOIN employees e ON e.id = u.employee_id
+			WHERE u.login = $1 AND e.is_active = true`,
 			[login.toLowerCase()]
 		)
 
@@ -43,6 +44,8 @@ router.post('/login', async (req, res) => {
 		)
 
 		await redis.set(`token:${jti}`, String(user.id), { EX: tokenTtl })
+		await redis.sAdd(`user_tokens:${user.id}`, jti)
+		await redis.expire(`user_tokens:${user.id}`, tokenTtl)
 
 		res.json({ token })
 	} catch(err) {
@@ -54,6 +57,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', authenticate, async (req, res) => {
 	try {
 		await redis.del(`token:${req.user.jti}`)
+		await redis.sRem(`user_tokens:${req.user.id}`, req.user.jti)
 		console.log('User logged out, id:', req.user.id)
 		res.json({ message: loggedOutResponse})
 	} catch(err) {

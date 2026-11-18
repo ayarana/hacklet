@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../config/db.js'
+import redis from '../config/redis.js'
 import requireRole from '../middleware/rbac.js'
 import {
 	internalServerErrorMSG,
@@ -141,6 +142,17 @@ router.patch('/:id/fire', requireRole('admin'), async (req, res) => {
 		if (result.rows.length === 0) {
 			return res.status(404).json({ error: notFoundResponse})
 		}
+		const owner = await pool.query('SELECT id FROM users WHERE employee_id = $1', [id])
+
+		if (owner.rows.length > 0) {
+			const setKey = `user_tokens:${owner.rows[0].id}`
+			const jtis = await redis.sMembers(setKey)
+			const keys = jtis.map((j) => `token:${j}`)
+			keys.push(setKey)
+			await redis.del(keys)
+			console.log('Tokens revoked for user id:', owner.rows[0].id)
+		}
+
 		console.log('Employee fired, id:', id)
 		res.json(result.rows[0])
 	} catch(err) {

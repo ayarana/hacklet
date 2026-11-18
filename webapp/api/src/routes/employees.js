@@ -1,35 +1,37 @@
 import { Router } from 'express'
 import pool from '../config/db.js'
+import requireRole from '../middleware/rbac.js'
+import {
+	internalServerErrorMSG,
+	internalServerErrorResponse,
+	invalidIdResponse,
+	notFoundResponse,
+	noFieldsResponse,
+	invalidCpfResponse,
+	missingFieldsResponse,
+	tooLongResponse,
+	duplicateResponse
+} from '../config/messages.js'
 
 const router = Router()
-const internalServerErrorMSG = 'Error 500 (Internal Server Error):'
-const internalServerErrorResponse = 'Internal server error'
-const invalidIdResponse = 'invalid id'
-const notFoundResponse = 'Employee not found'
-const noFieldsResponse = 'No valid fields to update'
-const invalidCpfResponse = 'Invalid CPF format'
-const missingFieldsResponse = 'Missing required fields'
-const tooLongResponse = 'A field value is too long'
-const duplicateResponse = 'Email or CPF already registered'
 const validateCpf = (value) => /^\d{11}$/.test(value)
+const publicCols = 'id, name, job_title, department, corporate_email, corporate_phone'
+const allCols = publicCols + ', wage, cpf, personal_phone, address, is_active'
 
 router.get('/', async (req, res) => {
+	const isAdmin = req.user.role === 'admin'
+	const cols = isAdmin ? allCols : publicCols
+	const onlyActive = isAdmin ? '' : 'WHERE is_active = true'
+
 	try {
 		const result = await pool.query(
-			`SELECT
-				id,
-				name,
-				job_title,
-				department,
-				corporate_email,
-				corporate_phone
+			`SELECT ${cols}
 			FROM employees
-			WHERE is_active = true
+			${onlyActive}
 			ORDER BY id`
 		)
 		res.json(result.rows)
 	} catch(err) {
-
 		res.status(500).json({ error: internalServerErrorResponse })
 		console.log(internalServerErrorMSG, err)
 	}
@@ -42,17 +44,16 @@ router.get('/:id', async (req, res) => {
 		return res.status(400).json({ error: invalidIdResponse })
 	}
 
+	const isAdmin = req.user.role === 'admin'
+	const seesAll = isAdmin || Number(id) === req.user.employeeId
+	const cols = seesAll ? allCols : publicCols
+	const activeFilter = isAdmin ? '' : 'AND is_active = true'
+
 	try {
 		const result = await pool.query(
-			`SELECT
-				id,
-				name,
-				job_title,
-				department,
-				corporate_email,
-				corporate_phone
+			`SELECT ${cols}
 			FROM employees
-			WHERE id = $1 AND is_active = true`,
+			WHERE id = $1 ${activeFilter}`,
 			[id]
 		)
 
@@ -66,7 +67,7 @@ router.get('/:id', async (req, res) => {
 	}
 })
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireRole('admin'), async (req, res) => {
 	const { id } = req.params
 
 	if (!/^\d+$/.test(id)) {
@@ -120,7 +121,7 @@ router.patch('/:id', async (req, res) => {
 
 })
 
-router.patch('/:id/fire', async (req, res) => {
+router.patch('/:id/fire', requireRole('admin'), async (req, res) => {
 	const { id } = req.params
 
 	if (!/^\d+$/.test(id)) {
@@ -148,7 +149,7 @@ router.patch('/:id/fire', async (req, res) => {
 	}
 })
 
-router.post('/', async (req, res) => {
+router.post('/', requireRole('admin'), async (req, res) => {
 	const { name, job_title, department, corporate_email, corporate_phone, wage, cpf, personal_phone, address } = req.body
 
 	if (!name || !job_title || !department || !corporate_email || !wage || !cpf) {

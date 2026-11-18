@@ -12,3 +12,12 @@ CREATE TABLE employees (
 	is_active BOOLEAN NOT NULL DEFAULT true,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE users (
+	id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	employee_id INTEGER NOT NULL UNIQUE REFERENCES employees(id),
+	login VARCHAR(255) NOT NULL UNIQUE,
+	password_hash VARCHAR(255) NOT NULL,
+	role VARCHAR(20) NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
